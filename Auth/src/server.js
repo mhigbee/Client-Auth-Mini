@@ -3,6 +3,7 @@ const express = require('express');
 const session = require('express-session');
 const User = require('./user.js');
 const bcrypt = require('bcrypt');
+const cors = require('cors');
 
 const STATUS_USER_ERROR = 422;
 const BCRYPT_COST = 11;
@@ -15,6 +16,12 @@ server.use(session({
   resave: true,
   saveUninitialized: true
 }));
+
+const corsOptions = {
+  "origin": "http://localhost:3000",
+  "credentials": true
+};
+server.use(cors(corsOptions));
 
 /* Sends the given err, a string or an object, to the client. Sets the status
  * code appropriately. */
@@ -68,7 +75,7 @@ server.post('/users', (req, res) => {
   });
 });
 
-server.post('/log-in', (req, res) => {
+server.post('/login', (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) {
     sendUserError('Please provide a username and password', res);
@@ -84,7 +91,19 @@ server.post('/log-in', (req, res) => {
   });
 });
 
-const restrictAcces = (req, res, next) => {
+server.post('/logout', (req, res) =>{
+  const { username } = req.body;
+  if(!req.session.username) {
+    sendUserError('User already logged out', res);
+    return;
+  }
+  if (req.session.username === username) {
+    delete req.session.username
+    res.json({message: 'Successfully logged out'});
+  }
+});
+
+const restrictAccess = (req, res, next) => {
   const path = req.path;
   if (/restricted/.test(path)) {
     if (!req.session.username) {
@@ -95,7 +114,7 @@ const restrictAcces = (req, res, next) => {
   next();
 };
 
-server.use(restrictAcces);
+server.use(restrictAccess);
 
 // TODO: add local middleware to this route to ensure the user is logged in
 server.get('/me', ensureLogin, (req, res) => {
